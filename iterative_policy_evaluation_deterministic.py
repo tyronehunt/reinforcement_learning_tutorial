@@ -1,13 +1,10 @@
 from __future__ import print_function, division
 from builtins import range
-# Note: you may need to update your version of future
-# sudo pip install -U future
-
 
 import numpy as np
 from grid_world import standard_grid, ACTION_SPACE
 
-SMALL_ENOUGH = 1e-3  # threshold for convergence
+SMALL_ENOUGH = 1e-3  # threshold for convergence (in value table)
 
 
 def print_values(V, g):
@@ -18,6 +15,7 @@ def print_values(V, g):
     for i in range(g.rows):
         print("---------------------------")
         for j in range(g.cols):
+            # If value is not in dictionary, use default value 0
             v = V.get((i, j), 0)
             if v >= 0:
                 print(" %.2f|" % v, end="")
@@ -57,6 +55,7 @@ if __name__ == '__main__':
      is not terminal, we fetch the next state, transition prob and reward, i.e. s', p(s, a, s'), r(s')
     """
     rewards = {}
+    # Fetching the grid is akin to creating the environment
     grid = standard_grid()
     for i in range(grid.rows):
         for j in range(grid.cols):
@@ -91,21 +90,28 @@ if __name__ == '__main__':
 
     gamma = 0.9  # discount factor
 
+    """ Policy evaluation Code - Main Purpose of Script"""
     # repeat until convergence
     it = 0
+    # Keep looping while max change of V(s) is greater than threshold set
     while True:
         biggest_change = 0
+        # Loop through all states
         for s in grid.all_states():
+            # If state is terminal, we already known V(s) = 0
             if not grid.is_terminal(s):
                 old_v = V[s]
                 new_v = 0  # we will accumulate the answer
+                # Loop through action space to get new_v
                 for a in ACTION_SPACE:
+                    # Another loop through state space, but this time for s2
                     for s2 in grid.all_states():
-                        # action probability is deterministic
+                        # action probability is deterministic so action_prob = 1 or 0.
                         action_prob = 1 if policy.get(s) == a else 0
-
                         # reward is a function of (s, a, s'), 0 if not specified
                         r = rewards.get((s, a, s2), 0)
+                        # Bellmans equation: V(s) = sum(action prob * transition prob * (r  +yV(s')
+                        # Note summation is done over a and s'
                         new_v += action_prob * transition_probs.get((s, a, s2), 0) * (r + gamma * V[s2])
 
                 # after done getting the new value, update the value table
