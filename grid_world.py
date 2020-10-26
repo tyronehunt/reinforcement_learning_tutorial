@@ -264,6 +264,7 @@ def windy_grid():
 
 
 def windy_grid_penalized(step_cost=-0.1):
+    # step-cost is the reward for going to any state that is not terminal.
     g = WindyGrid(3, 4, (2, 0))
     rewards = {
         (0, 0): step_cost,
