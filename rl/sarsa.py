@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 from builtins import range
 
+from rl import *
 import numpy as np
 import matplotlib.pyplot as plt
 from grid_world import standard_grid, negative_grid
