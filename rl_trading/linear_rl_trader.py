@@ -156,12 +156,13 @@ class MultiStockEnv:
         # 2 = buy
         self.action_list = list(map(list, itertools.product([0, 1, 2], repeat=self.n_stock)))
 
-        # calculate size of state
+        # calculate size of state (as per definition above)
         self.state_dim = self.n_stock * 2 + 1
 
         self.reset()
 
     def reset(self):
+        # Reset to initial state and return state vector (from _get_obs function)
         self.cur_step = 0
         self.stock_owned = np.zeros(self.n_stock)
         self.stock_price = self.stock_price_history[self.cur_step]
@@ -169,6 +170,7 @@ class MultiStockEnv:
         return self._get_obs()
 
     def step(self, action):
+        """ Perform action in environment and return next state and reward """
         assert action in self.action_space
 
         # get current value before performing the action
@@ -247,6 +249,7 @@ class MultiStockEnv:
 
 
 class DQNAgent(object):
+    """ """
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
@@ -257,26 +260,35 @@ class DQNAgent(object):
         self.model = LinearModel(state_size, action_size)
 
     def act(self, state):
+        # Take in state and choose an action based on that state, using epsilon greedy.
+        # If not random, we take the action that leads to max Q-value (argmax over model predictions).
         if np.random.rand() <= self.epsilon:
             return np.random.choice(self.action_size)
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])  # returns action
 
     def train(self, state, action, reward, next_state, done):
+        """ Note, our model has multiple outputs, one for each action, but the target is a scalar.
+        We also need targets for other outputs (but their error should be zero, or target=prediction).
+        """
         if done:
             target = reward
         else:
             target = reward + self.gamma * np.amax(self.model.predict(next_state), axis=1)
 
+        # 2D as num_samples x num_outputs
         target_full = self.model.predict(state)
+        # Only have 1 sample, so index=0
         target_full[0, action] = target
 
-        # Run one training step
+        # Run one training step (of gradient descent).
         self.model.sgd(state, target_full)
 
+        # Reduce exploration over time.
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
+    # Load/Save useful to train script with one run, save weights and test with different configurations.
     def load(self, name):
         self.model.load_weights(name)
 
@@ -285,6 +297,10 @@ class DQNAgent(object):
 
 
 def play_one_episode(agent, env, is_train):
+    """ Reset the environment, get initial state and transform it.
+        Use agent to determine each action, perform it in the environment.
+        We get back next state, reward, done and info and scale next state.
+        Then if in train mode, we train. """
     # note: after transforming states are already 1xD
     state = env.reset()
     state = scaler.transform([state])
@@ -305,27 +321,31 @@ if __name__ == '__main__':
 
     # config
     models_folder = 'linear_rl_trader_models'
-    rewards_folder = 'linear_rl_trader_rewards'
+    rewards_folder = 'linear_rl_trader_rewards' # from both train / test phases.
     num_episodes = 2000
-    batch_size = 32
+    batch_size = 32 # for sampling from replay memory
     initial_investment = 20000
 
+    # Enable running the script with command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mode', type=str, required=True,
-                        help='either "train" or "test"')
+                        help='--mode can be either "train" or "test"')
     args = parser.parse_args()
 
+    # Create directories, if not already exist.
     maybe_make_dir(models_folder)
     maybe_make_dir(rewards_folder)
 
+    # Fetch time series
     data = get_data()
     n_timesteps, n_stocks = data.shape
 
+    # Using 50:50 train/test split
     n_train = n_timesteps // 2
-
     train_data = data[:n_train]
     test_data = data[n_train:]
 
+    # Create training environment and action (with size of state and action space)
     env = MultiStockEnv(train_data, initial_investment)
     state_size = env.state_dim
     action_size = len(env.action_space)
@@ -336,14 +356,14 @@ if __name__ == '__main__':
     portfolio_value = []
 
     if args.mode == 'test':
-        # then load the previous scaler
-        with open(f'{models_folder}/scaler.pkl', 'rb') as f:
+        # then load the previous scaler (must be the same as train!)
+        with open(f"{models_folder}/scaler.pkl", 'rb') as f:
             scaler = pickle.load(f)
 
         # remake the env with test data
         env = MultiStockEnv(test_data, initial_investment)
 
-        # make sure epsilon is not 1!
+        # make sure epsilon is not default value = 1! (otherwise pure exploration)
         # no need to run multiple episodes if epsilon = 0, it's deterministic
         agent.epsilon = 0.01
 
@@ -360,7 +380,7 @@ if __name__ == '__main__':
 
     # save the weights when we are done
     if args.mode == 'train':
-        # save the DQN
+        # save the DQN Agent
         agent.save(f'{models_folder}/linear.npz')
 
         # save the scaler
