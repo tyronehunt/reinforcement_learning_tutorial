@@ -133,6 +133,7 @@ class MultiStockEnv:
         # data
         self.stock_price_history = data
         self.n_step, self.n_stock = self.stock_price_history.shape
+        print(self.n_step)
 
         # instance attributes
         self.initial_investment = initial_investment
