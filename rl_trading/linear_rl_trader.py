@@ -206,6 +206,7 @@ class MultiStockEnv:
         return obs
 
     def _get_val(self):
+        # Calculates current total value of portfolio
         return self.stock_owned.dot(self.stock_price) + self.cash_in_hand
 
     def _trade(self, action):
@@ -276,9 +277,11 @@ class DQNAgent(object):
         else:
             target = reward + self.gamma * np.amax(self.model.predict(next_state), axis=1)
 
-        # 2D as num_samples x num_outputs
+        # target_full is 2D as num_samples (rows) x num_outputs (cols).
+        # In this case: outputs = number of action indexes = 27, samples = 1 as state vector is (1x7)
+        # and target_full is (1x27)
         target_full = self.model.predict(state)
-        # Only have 1 sample, so index=0
+        # Only have 1 sample, so row index=0
         target_full[0, action] = target
 
         # Run one training step (of gradient descent).
@@ -379,6 +382,7 @@ if __name__ == '__main__':
         portfolio_value.append(val)  # append episode end portfolio value
 
     # save the weights when we are done
+    # if args.mode == 'train':
     if args.mode == 'train':
         # save the DQN Agent
         agent.save(f'{models_folder}/linear.npz')
@@ -391,5 +395,5 @@ if __name__ == '__main__':
         plt.plot(agent.model.losses)
         plt.show()
 
-    # save portfolio value for each episode
+    # save list of each of the episodes final portfolio values
     np.save(f'{rewards_folder}/{args.mode}.npy', portfolio_value)
